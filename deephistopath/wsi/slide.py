@@ -142,7 +142,7 @@ def get_training_slide_path(slide_number):
   return slide_filepath
 
 
-def get_tile_image_path(tile):
+def get_tile_image_path(tile,slide_number):
   """
   Obtain tile image path based on tile information such as row, column, row pixel position, column pixel position,
   pixel width, and pixel height.
@@ -155,9 +155,11 @@ def get_tile_image_path(tile):
   """
   t = tile
   padded_sl_num = str(t.slide_num).zfill(3)
-  tile_path = os.path.join(TILE_DIR, padded_sl_num,
-                           TRAIN_PREFIX + padded_sl_num + "-" + TILE_SUFFIX + "-r%d-c%d-x%d-y%d-w%d-h%d" % (
-                             t.r, t.c, t.o_c_s, t.o_r_s, t.o_c_e - t.o_c_s, t.o_r_e - t.o_r_s) + "." + DEST_TRAIN_EXT)
+  dir_path = "F:/Projects/HEROHE/Dataset/Tiles/"+str(slide_number)
+  if not os.path.exists(dir_path):
+    os.makedirs(dir_path)
+  tile_path = os.path.join(dir_path,"patch-r%d-c%d-x%d-y%d-w%d-h%d" % (
+                             t.r, t.c, t.o_c_s, t.o_r_s, t.o_c_e - t.o_c_s, t.o_r_e - t.o_r_s) + "." + "png")
   return tile_path
 
 
@@ -204,9 +206,8 @@ def get_training_image_path(slide_number, large_w=None, large_h=None, small_w=No
     wildcard_path = os.path.join(DEST_TRAIN_DIR, TRAIN_PREFIX + padded_sl_num + "*." + DEST_TRAIN_EXT)
     img_path = glob.glob(wildcard_path)[0]
   else:
-    img_path = os.path.join(DEST_TRAIN_DIR, TRAIN_PREFIX + padded_sl_num + "-" + str(
-      SCALE_FACTOR) + "x-" + DEST_TRAIN_SUFFIX + str(
-      large_w) + "x" + str(large_h) + "-" + str(small_w) + "x" + str(small_h) + "." + DEST_TRAIN_EXT)
+    img_path = os.path.join("C:/Users/Srijay/Desktop/Projects/python-wsi-preprocessing/data", str(slide_number) + "-" +str(
+      large_w) + "x" + str(large_h) + "-" + str(small_w) + "x" + str(small_h) + ".png")
   return img_path
 
 
@@ -646,7 +647,7 @@ def small_to_large_mapping(small_pixel, large_dimensions):
   return large_x, large_y
 
 
-def training_slide_to_image(slide_number):
+def training_slide_to_image(slide_path):
   """
   Convert a WSI training slide to a saved scaled-down image in a format such as jpg or png.
 
@@ -654,19 +655,20 @@ def training_slide_to_image(slide_number):
     slide_number: The slide number.
   """
 
-  img, large_w, large_h, new_w, new_h = slide_to_scaled_pil_image(slide_number)
-
+  img, large_w, large_h, new_w, new_h = slide_to_scaled_pil_image(slide_path)
+  splt = slide_path.split("/")
+  slide_number = int(splt[len(splt) - 1][:-5])
   img_path = get_training_image_path(slide_number, large_w, large_h, new_w, new_h)
   print("Saving image to: " + img_path)
-  if not os.path.exists(DEST_TRAIN_DIR):
-    os.makedirs(DEST_TRAIN_DIR)
+  #if not os.path.exists(DEST_TRAIN_DIR):
+    #os.makedirs(DEST_TRAIN_DIR)
   img.save(img_path)
+  return img_path
+  #thumbnail_path = get_training_thumbnail_path(slide_number, large_w, large_h, new_w, new_h) #Srijay
+  #save_thumbnail(img, THUMBNAIL_SIZE, thumbnail_path)
 
-  thumbnail_path = get_training_thumbnail_path(slide_number, large_w, large_h, new_w, new_h)
-  save_thumbnail(img, THUMBNAIL_SIZE, thumbnail_path)
 
-
-def slide_to_scaled_pil_image(slide_number):
+def slide_to_scaled_pil_image(slide_filepath):
   """
   Convert a WSI training slide to a scaled-down PIL image.
 
@@ -676,8 +678,8 @@ def slide_to_scaled_pil_image(slide_number):
   Returns:
     Tuple consisting of scaled-down PIL image, original width, original height, new width, and new height.
   """
-  slide_filepath = get_training_slide_path(slide_number)
-  print("Opening Slide #%d: %s" % (slide_number, slide_filepath))
+  #slide_filepath = get_training_slide_path(slide_number) #Srijay
+  print("Opening Slide %s" % slide_filepath)
   slide = open_slide(slide_filepath)
 
   large_w, large_h = slide.dimensions

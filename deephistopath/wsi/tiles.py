@@ -497,7 +497,7 @@ def save_top_tiles_on_original_image(pil_img, slide_num):
     "%-20s | Time: %-14s  Name: %s" % ("Save Top Orig Thumb", str(t.elapsed()), thumbnail_filepath))
 
 
-def summary_and_tiles(slide_num, display=True, save_summary=False, save_data=True, save_top_tiles=True):
+def summary_and_tiles(img_path, slide_filepath="", display=True, save_summary=False, save_data=True, save_top_tiles=True):
   """
   Generate tile summary and top tiles for slide.
 
@@ -509,17 +509,19 @@ def summary_and_tiles(slide_num, display=True, save_summary=False, save_data=Tru
     save_top_tiles: If True, save top tiles to files.
 
   """
-  img_path = slide.get_filter_image_result(slide_num)
+  #img_path = slide.get_filter_image_result(slide_num)
   np_img = slide.open_image_np(img_path)
 
-  tile_sum = score_tiles(slide_num, np_img)
+  tile_sum = score_tiles(img_path, np_img)
   if save_data:
     save_tile_data(tile_sum)
-  generate_tile_summaries(tile_sum, np_img, display=display, save_summary=save_summary)
-  generate_top_tile_summaries(tile_sum, np_img, display=display, save_summary=save_summary)
+  #generate_tile_summaries(tile_sum, np_img, display=display, save_summary=save_summary)
+  #generate_top_tile_summaries(tile_sum, np_img, display=display, save_summary=save_summary)
+  #generate_top_tile_summaries(tile_sum, np_img, display=display, save_summary=save_summary)
   if save_top_tiles:
+    print("Here length of top tiles is ",len(tile_sum.top_tiles()))
     for tile in tile_sum.top_tiles():
-      tile.save_tile()
+      tile.save_tile(slide_filepath)
   return tile_sum
 
 
@@ -554,7 +556,7 @@ def save_tile_data(tile_summary):
   print("%-20s | Time: %-14s  Name: %s" % ("Save Tile Data", str(time.elapsed()), data_path))
 
 
-def tile_to_pil_tile(tile):
+def tile_to_pil_tile(tile,slide_filepath=""):
   """
   Convert tile information into the corresponding tile as a PIL image read from the whole-slide image file.
 
@@ -565,7 +567,7 @@ def tile_to_pil_tile(tile):
     Tile as a PIL image.
   """
   t = tile
-  slide_filepath = slide.get_training_slide_path(t.slide_num)
+  #slide_filepath = slide.get_training_slide_path(t.slide_num)
   s = slide.open_slide(slide_filepath)
 
   x, y = t.o_c_s, t.o_r_s
@@ -591,7 +593,7 @@ def tile_to_np_tile(tile):
   return np_img
 
 
-def save_display_tile(tile, save=True, display=False):
+def save_display_tile(tile, slide_filepath="", save=True, display=False):
   """
   Save and/or display a tile image.
 
@@ -600,11 +602,12 @@ def save_display_tile(tile, save=True, display=False):
     save: If True, save tile image.
     display: If True, dispaly tile image.
   """
-  tile_pil_img = tile_to_pil_tile(tile)
-
+  tile_pil_img = tile_to_pil_tile(tile,slide_filepath)
+  splt = slide_filepath.split("/")
+  slide_number = int(splt[len(splt)-1][:-5])
   if save:
     t = Time()
-    img_path = slide.get_tile_image_path(tile)
+    img_path = slide.get_tile_image_path(tile,slide_number)
     dir = os.path.dirname(img_path)
     if not os.path.exists(dir):
       os.makedirs(dir)
@@ -615,7 +618,7 @@ def save_display_tile(tile, save=True, display=False):
     tile_pil_img.show()
 
 
-def score_tiles(slide_num, np_img=None, dimensions=None, small_tile_in_tile=False):
+def score_tiles(img_path, np_img=None, dimensions=None, small_tile_in_tile=False):
   """
   Score all tiles for a slide and return the results in a TileSummary object.
 
@@ -630,7 +633,7 @@ def score_tiles(slide_num, np_img=None, dimensions=None, small_tile_in_tile=Fals
     TileSummary object which includes a list of Tile objects containing information about each tile.
   """
   if dimensions is None:
-    img_path = slide.get_filter_image_result(slide_num)
+    #img_path = slide.get_filter_image_result(slide_num)
     o_w, o_h, w, h = slide.parse_dimensions_from_image_filename(img_path)
   else:
     o_w, o_h, w, h = dimensions
@@ -640,10 +643,15 @@ def score_tiles(slide_num, np_img=None, dimensions=None, small_tile_in_tile=Fals
 
   row_tile_size = round(ROW_TILE_SIZE / slide.SCALE_FACTOR)  # use round?
   col_tile_size = round(COL_TILE_SIZE / slide.SCALE_FACTOR)  # use round?
+  print(h)
+  print(w)
+  print(row_tile_size)
+  print(col_tile_size)
+  print(slide.SCALE_FACTOR)
 
   num_row_tiles, num_col_tiles = get_num_tiles(h, w, row_tile_size, col_tile_size)
 
-  tile_sum = TileSummary(slide_num=slide_num,
+  tile_sum = TileSummary(slide_num=0,#srijay
                          orig_w=o_w,
                          orig_h=o_h,
                          orig_tile_w=COL_TILE_SIZE,
@@ -655,6 +663,8 @@ def score_tiles(slide_num, np_img=None, dimensions=None, small_tile_in_tile=Fals
                          tissue_percentage=filter.tissue_percent(np_img),
                          num_col_tiles=num_col_tiles,
                          num_row_tiles=num_row_tiles)
+
+  print(filter.tissue_percent(np_img))
 
   count = 0
   high = 0
@@ -685,10 +695,10 @@ def score_tiles(slide_num, np_img=None, dimensions=None, small_tile_in_tile=Fals
     if (o_r_e - o_r_s) > ROW_TILE_SIZE:
       o_r_e -= 1
 
-    score, color_factor, s_and_v_factor, quantity_factor = score_tile(np_tile, t_p, slide_num, r, c)
+    score, color_factor, s_and_v_factor, quantity_factor = score_tile(np_tile, t_p, r, c) #Srijay
 
     np_scaled_tile = np_tile if small_tile_in_tile else None
-    tile = Tile(tile_sum, slide_num, np_scaled_tile, count, r, c, r_s, r_e, c_s, c_e, o_r_s, o_r_e, o_c_s,
+    tile = Tile(tile_sum, 0, np_scaled_tile, count, r, c, r_s, r_e, c_s, c_e, o_r_s, o_r_e, o_c_s, #Srijay
                 o_c_e, t_p, color_factor, s_and_v_factor, quantity_factor, score)
     tile_sum.tiles.append(tile)
 
@@ -707,7 +717,7 @@ def score_tiles(slide_num, np_img=None, dimensions=None, small_tile_in_tile=Fals
   return tile_sum
 
 
-def score_tile(np_tile, tissue_percent, slide_num, row, col):
+def score_tile(np_tile, tissue_percent, row, col): #srijay
   """
   Score tile based on tissue percentage, color factor, saturation/value factor, and tissue quantity factor.
 
@@ -1891,8 +1901,8 @@ class Tile:
   def get_np_tile(self):
     return tile_to_np_tile(self)
 
-  def save_tile(self):
-    save_display_tile(self, save=True, display=False)
+  def save_tile(self,slide_filepath=""):
+    save_display_tile(self, slide_filepath, save=True, display=False)
 
   def display_tile(self):
     save_display_tile(self, save=False, display=True)
